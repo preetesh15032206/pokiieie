@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Monitoring Control Panel -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="glass-card p-4">
+            <div class="row align-items-center g-4">
+                <div class="col-md-3 border-end border-secondary border-opacity-25">
+                    <h6 class="text-info fw-bold small mb-3"><i class="bi bi-gear-fill me-2"></i>ENGINE SETUP</h6>
+                    <div class="pe-3">
+                        <label class="small text-muted mb-2 fw-bold">Duration (min)</label>
+                        <input type="number" id="mon-duration" class="form-control bg-dark border-secondary text-white rounded-pill px-4 py-2" value="5" style="border-width: 2px;">
+                    </div>
+                </div>
+                <div class="col-md-6 px-lg-5">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-info fw-bold small mb-0"><i class="bi bi-activity me-2"></i>ACTIVE SESSION</h6>
+                        <span id="session-timer" class="text-white fw-bold h4 mb-0">00:00</span>
+                    </div>
+                    <div class="d-flex gap-3">
+                        <button id="btn-start" class="btn btn-premium flex-grow-1 shadow-lg" onclick="startMonitoring()">START MONITORING</button>
+                        <button id="btn-stop" class="btn btn-outline-danger rounded-pill px-4 fw-bold" onclick="stopMonitoring()" disabled>STOP</button>
+                        <button class="btn btn-outline-secondary rounded-pill px-3" onclick="clearSession()" title="Reset Engine"><i class="bi bi-arrow-counterclockwise"></i></button>
+                    </div>
+                </div>
+                <div class="col-md-3 border-start border-secondary border-opacity-25 ps-4">
+                    <h6 class="text-info fw-bold small mb-2"><i class="bi bi-fingerprint me-2"></i>SESSION ID</h6>
+                    <div id="session-id" class="fw-bold text-white mb-3 h5">IDLE_SYSTEM</div>
+                    <div class="progress bg-dark" style="height: 10px; border-radius: 10px;">
+                        <div id="session-progress" class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-5">
+    <div class="col-12 text-center prediction-hero glass-card p-5 overflow-hidden position-relative">
+        <div class="position-absolute top-0 start-0 w-100 h-100" style="background: radial-gradient(circle at 50% 50%, rgba(0, 242, 255, 0.15), transparent); pointer-events: none;"></div>
+        <div id="main-icon-container" class="display-1 mb-4">
+            <i class="bi bi-stars animate-pulse text-info"></i>
+        </div>
+        <h5 class="text-info fw-bold mb-3 d-block text-uppercase" style="letter-spacing: 4px;">AI Analysis Engine</h5>
+        <div class="d-inline-block">
+            <div id="main-prediction" class="h1 fw-bold mb-0 py-3 px-5 rounded-pill shadow-lg border border-secondary border-opacity-25" style="background: rgba(0,0,0,0.3); min-width: 300px;">
+                READY
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <!-- Temp -->
+    <div class="col-md-3">
+        <div class="glass-card p-4 h-100 d-flex flex-column">
+            <div class="d-flex justify-content-between mb-3 align-items-center">
+                <span class="text-info fw-bold small">TEMPERATURE</span>
+                <i class="bi bi-thermometer-half fs-4" style="color: var(--accent-temp);"></i>
+            </div>
+            <div class="mt-auto">
+                <div class="d-flex align-items-baseline mb-3">
+                    <span id="card-temp" class="metric-value" style="color: var(--accent-temp);">--</span>
+                    <span class="text-white ms-2 h4 fw-bold">°C</span>
+                </div>
+                <div style="height: 80px;" class="mt-2">
+                    <canvas id="tempSpark"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Humidity -->
+    <div class="col-md-3">
+        <div class="glass-card p-4 h-100 d-flex flex-column">
+            <div class="d-flex justify-content-between mb-3 align-items-center">
+                <span class="text-info fw-bold small">HUMIDITY</span>
+                <i class="bi bi-droplet-fill fs-4" style="color: var(--accent-hum);"></i>
+            </div>
+            <div class="mt-auto">
+                <div class="d-flex align-items-baseline mb-3">
+                    <span id="card-hum" class="metric-value" style="color: var(--accent-hum);">--</span>
+                    <span class="text-white ms-2 h4 fw-bold">%</span>
+                </div>
+                <div style="height: 80px;" class="mt-2">
+                    <canvas id="humSpark"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Precipitation -->
+    <div class="col-md-3">
+        <div class="glass-card p-4 h-100 d-flex flex-column">
+            <div class="d-flex justify-content-between mb-3 align-items-center">
+                <span class="text-info fw-bold small">PRECIPITATION</span>
+                <i class="bi bi-cloud-rain-fill fs-4" style="color: var(--accent-precip);"></i>
+            </div>
+            <div class="mt-auto">
+                <div class="d-flex align-items-baseline mb-3">
+                    <span id="card-precip" class="metric-value" style="color: var(--accent-precip);">--</span>
+                    <span class="text-white ms-2 h4 fw-bold">%</span>
+                </div>
+                <div style="height: 80px;" class="mt-2">
+                    <canvas id="precipSpark"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- UV -->
+    <div class="col-md-3">
+        <div class="glass-card p-4 h-100 d-flex flex-column">
+            <div class="d-flex justify-content-between mb-3 align-items-center">
+                <span class="text-info fw-bold small">UV INDEX</span>
+                <i class="bi bi-sun-fill fs-4" style="color: var(--accent-uv);"></i>
+            </div>
+            <div class="mt-auto">
+                <div class="d-flex align-items-baseline mb-3">
+                    <span id="card-uv" class="metric-value" style="color: var(--accent-uv);">--</span>
+                    <span class="text-white ms-2 h4 fw-bold">UVI</span>
+                </div>
+                <div id="uv-risk-label" class="mt-2 fw-bold px-4 py-2 rounded-pill text-center shadow-sm" style="font-size: 0.85rem;">--</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mt-2">
+    <div class="col-md-6">
+        <div class="glass-card p-4 d-flex justify-content-between align-items-center border-start border-info border-5">
+            <div>
+                <span class="text-info fw-bold small">ANALYSIS CONFIDENCE</span>
+                <div id="ai-conf" class="h2 fw-bold mb-0 text-white mt-1">--%</div>
+            </div>
+            <div class="text-info h1 mb-0 opacity-75"><i class="bi bi-shield-check"></i></div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="glass-card p-4 d-flex justify-content-between align-items-center border-start border-primary border-5">
+            <div>
+                <span class="text-primary fw-bold small">STREAM INTEGRITY</span>
+                <div id="stream-status" class="h2 fw-bold mb-0 text-white mt-1">STANDBY</div>
+            </div>
+            <div class="text-primary h1 mb-0 opacity-75"><i class="bi bi-activity"></i></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let charts = {};
+    const sparkConfig = {
+        type: 'line',
+        options: {
+            maintainAspectRatio: false,
+            plugins: { legend: false, tooltip: false },
+            scales: { x: { display: false }, y: { display: false } },
+            elements: { 
+                point: { radius: 0 }, 
+                line: { tension: 0.4, borderWidth: 3 } 
+            }
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const createSpark = (id, color) => new Chart(document.getElementById(id), {
+            ...sparkConfig,
+            data: { 
+                labels: Array(15).fill(''), 
+                datasets: [{ 
+                    data: [], 
+                    borderColor: color, 
+                    fill: true, 
+                    backgroundColor: color + '11',
+                    borderCapStyle: 'round'
+                }] 
+            }
+        });
+        charts.temp = createSpark('tempSpark', '#fb923c');
+        charts.hum = createSpark('humSpark', '#38bdf8');
+        charts.precip = createSpark('precipSpark', '#22d3ee');
+    });
+
+    async function startMonitoring() {
+        const dur = document.getElementById('mon-duration').value;
+        await fetch('/start_monitoring', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ duration: dur })
+        });
+    }
+
+    async function stopMonitoring() {
+        await fetch('/stop_monitoring', { method: 'POST' });
+    }
+
+    async function clearSession() {
+        await fetch('/clear_data', { method: 'POST' });
+    }
+
+    function updateColors(type) {
+        type = type.toLowerCase();
+        if (type.includes('sun')) return { bg: 'rgba(245, 158, 11, 0.2)', text: '#f59e0b', icon: 'bi-sun-fill' };
+        if (type.includes('rain')) return { bg: 'rgba(59, 130, 246, 0.2)', text: '#3b82f6', icon: 'bi-cloud-rain-fill' };
+        if (type.includes('cloud')) return { bg: 'rgba(148, 163, 184, 0.2)', text: '#94a3b8', icon: 'bi-cloud-fill' };
+        return { bg: 'rgba(255,255,255,0.05)', text: '#fff', icon: 'bi-stars' };
+    }
+
+    window.onUpdate = function(d) {
+        const mon = d.current.monitoring;
+        document.getElementById('btn-start').disabled = mon.active;
+        document.getElementById('btn-stop').disabled = !mon.active;
+        document.getElementById('session-id').innerText = mon.session_id || 'IDLE_SYSTEM';
+        
+        const mins = Math.floor(mon.remaining / 60);
+        const secs = mon.remaining % 60;
+        document.getElementById('session-timer').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        
+        const prog = mon.active ? (mon.elapsed / (mon.duration * 60) * 100) : 0;
+        document.getElementById('session-progress').style.width = prog + '%';
+        
+        if (!mon.active && d.current.status !== 'Completed') {
+            document.getElementById('main-prediction').innerText = 'READY';
+            document.getElementById('stream-status').innerText = 'STANDBY';
+            return;
+        }
+
+        document.getElementById('card-temp').innerText = d.current.temperature;
+        document.getElementById('card-hum').innerText = d.current.humidity;
+        document.getElementById('card-precip').innerText = d.current.precipitation;
+        document.getElementById('card-uv').innerText = d.current.uv_index;
+        document.getElementById('ai-conf').innerText = d.current.confidence + '%';
+        document.getElementById('stream-status').innerText = 'ACTIVE';
+
+        const pred = d.current.prediction;
+        const banner = document.getElementById('main-prediction');
+        const colors = updateColors(pred);
+        banner.innerText = pred.toUpperCase();
+        banner.style.color = colors.text;
+        banner.style.background = 'rgba(0,0,0,0.5)';
+        banner.style.borderColor = colors.text + '44';
+        document.getElementById('main-icon-container').innerHTML = `<i class="bi ${colors.icon} animate-pulse" style="color: ${colors.text}; filter: drop-shadow(0 0 20px ${colors.text});"></i>`;
+
+        let r = 'LOW', c = '#10b981';
+        if (d.current.uv_index >= 8) { r = 'EXTREME'; c = '#ef4444'; }
+        else if (d.current.uv_index >= 5) { r = 'HIGH'; c = '#f97316'; }
+        const rl = document.getElementById('uv-risk-label');
+        rl.innerText = r + ' RISK';
+        rl.style.color = c;
+        rl.style.background = c + '22';
+        rl.style.border = `1px solid ${c}44`;
+
+        if (d.history.length > 0) {
+            const h = d.history.slice(-15);
+            charts.temp.data.labels = h.map(x => '');
+            charts.temp.data.datasets[0].data = h.map(x => x.temperature);
+            charts.hum.data.labels = h.map(x => '');
+            charts.hum.data.datasets[0].data = h.map(x => x.humidity);
+            charts.precip.data.labels = h.map(x => '');
+            charts.precip.data.datasets[0].data = h.map(x => x.precipitation);
+            Object.values(charts).forEach(c => c.update('none'));
+        }
+    };
+</script>
+<style>
+    @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } }
+    .animate-pulse { animation: pulse 3s infinite ease-in-out; display: inline-block; }
+    .metric-value { font-size: 3rem; font-weight: 800; }
+    .prediction-hero { border: 2px solid rgba(255,255,255,0.05); transition: border-color 0.5s ease; }
+    input[type=number]::-webkit-inner-spin-button { opacity: 1; }
+</style>
+{% endblock %}

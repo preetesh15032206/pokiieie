@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="glass-card p-5 text-center h-100 d-flex flex-column justify-content-center overflow-hidden position-relative">
+            <div id="rain-bg" class="position-absolute top-0 start-0 w-100 h-100" style="z-index: 0; opacity: 0.15"></div>
+            <div style="z-index: 1">
+                <h6 class="text-info fw-bold mb-4" style="letter-spacing: 3px;">RAINFALL PROBABILITY</h6>
+                <div class="display-1 fw-bold text-white mb-4"><span id="p-val">--</span>%</div>
+                <div id="p-meter" class="h4 fw-bold px-5 py-3 rounded-pill d-inline-block shadow-lg border border-info border-opacity-25" style="background: rgba(0, 242, 255, 0.1); color: var(--primary);">DRY</div>
+                <p class="text-info mt-5 small fw-bold opacity-75">SENSOR ARRAY ANALYSIS ACTIVE</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-7">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-5">
+                <h6 class="text-info fw-bold m-0" style="letter-spacing: 1px;">PRECIPITATION INTENSITY HISTORY</h6>
+                <span class="badge rounded-pill bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-3 py-2">LIVE STREAM</span>
+            </div>
+            <div style="height: 400px;">
+                <canvas id="pHistory"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let pChart;
+    document.addEventListener('DOMContentLoaded', () => {
+        const ctx = document.getElementById('pHistory').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(0, 242, 255, 0.4)');
+        gradient.addColorStop(1, 'rgba(0, 242, 255, 0.05)');
+
+        pChart = new Chart(ctx, {
+            type: 'bar',
+            data: { 
+                labels: [], 
+                datasets: [{ 
+                    data: [], 
+                    backgroundColor: gradient, 
+                    borderColor: '#00f2ff', 
+                    borderWidth: 1,
+                    borderRadius: 5,
+                    barPercentage: 0.6
+                }] 
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { 
+                    y: { 
+                        beginAtZero: true, 
+                        max: 100, 
+                        grid: { color: 'rgba(255,255,255,0.05)' }, 
+                        ticks: { color: '#94a3b8' } 
+                    },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                },
+                plugins: { legend: false }
+            }
+        });
+
+        const bg = document.getElementById('rain-bg');
+        for(let i=0; i<40; i++) {
+            let drop = document.createElement('div');
+            drop.className = 'rain-drop';
+            drop.style.left = Math.random() * 100 + '%';
+            drop.style.animationDelay = Math.random() * 2 + 's';
+            drop.style.animationDuration = (Math.random() * 0.5 + 0.3) + 's';
+            bg.appendChild(drop);
+        }
+    });
+
+    window.onUpdate = function(d) {
+        if (!d.current.monitoring.active) return;
+        
+        document.getElementById('p-val').innerText = Math.round(d.current.precipitation);
+        let m = 'DRY';
+        let color = 'rgba(0, 242, 255, 0.1)';
+        if (d.current.precipitation > 60) { m = 'HEAVY RAIN'; color = 'rgba(239, 68, 68, 0.2)'; }
+        else if (d.current.precipitation > 20) { m = 'MODERATE'; color = 'rgba(59, 130, 246, 0.2)'; }
+        
+        const meter = document.getElementById('p-meter');
+        meter.innerText = m;
+        meter.style.background = color;
+
+        if (d.history.length > 0) {
+            pChart.data.labels = d.history.map(x => x.timestamp);
+            pChart.data.datasets[0].data = d.history.map(x => x.precipitation);
+            pChart.update('none');
+        }
+    };
+</script>
+<style>
+    .rain-drop {
+        position: absolute;
+        width: 1px; height: 20px;
+        background: linear-gradient(to bottom, transparent, #00f2ff);
+        top: -20px;
+        animation: fall linear infinite;
+    }
+    @keyframes fall { to { transform: translateY(600px); } }
+</style>
+{% endblock %}

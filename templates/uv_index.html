@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10 text-center">
+        <div id="uv-main-container" class="glass-card p-5" style="transition: all 1s ease; overflow: hidden; border: 2px solid rgba(255,255,255,0.05);">
+            <div class="position-absolute top-0 start-50 translate-middle-x opacity-10" style="font-size: 20rem; pointer-events: none; z-index: 0; color: var(--accent-uv);">
+                <i class="bi bi-sun-fill"></i>
+            </div>
+            
+            <div style="z-index: 1; position: relative;">
+                <h6 class="text-info fw-bold mb-4" style="letter-spacing: 4px;">SOLAR RADIATION INTENSITY</h6>
+                <div class="display-1 fw-bold text-white mb-3" id="uv-large">--</div>
+                <div id="uv-risk-badge" class="d-inline-block px-5 py-3 rounded-pill h4 fw-bold mb-5 shadow-lg border border-opacity-25">INITIALIZING...</div>
+                
+                <div class="row text-start mt-5 g-4">
+                    <div class="col-md-6">
+                        <div class="glass-card p-4 bg-dark bg-opacity-40 h-100 border border-white border-opacity-10">
+                            <h6 class="text-info fw-bold small mb-4" style="letter-spacing: 1px;"><i class="bi bi-shield-shaded me-2"></i>HEALTH & SAFETY ADVISORY</h6>
+                            <p id="uv-advice" class="text-white fw-medium">System stabilizing sensor arrays for radiation analysis...</p>
+                            <div class="d-flex gap-2 mt-4">
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-3 py-2 rounded-pill fw-bold">SUNSCREEN</span>
+                                <span class="badge bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-3 py-2 rounded-pill fw-bold">SHADE</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="glass-card p-4 bg-dark bg-opacity-40 h-100 border border-white border-opacity-10">
+                            <h6 class="text-info fw-bold small mb-4" style="letter-spacing: 1px;"><i class="bi bi-graph-up me-2"></i>LIVE RADIATION STREAM</h6>
+                            <div style="height: 140px;">
+                                <canvas id="uvLine"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let uvChart;
+    document.addEventListener('DOMContentLoaded', () => {
+        const ctx = document.getElementById('uvLine').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 120);
+        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+        gradient.addColorStop(1, 'transparent');
+
+        uvChart = new Chart(ctx, {
+            type: 'line',
+            data: { 
+                labels: [], 
+                datasets: [{ 
+                    data: [], 
+                    borderColor: '#fff', 
+                    backgroundColor: gradient,
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 0
+                }] 
+            },
+            options: {
+                plugins: { legend: false },
+                maintainAspectRatio: false,
+                scales: { 
+                    x: { display: false }, 
+                    y: { 
+                        display: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#94a3b8', stepSize: 2 }
+                    } 
+                }
+            }
+        });
+    });
+
+    window.onUpdate = function(d) {
+        if (!d.current.monitoring.active) return;
+
+        const val = d.current.uv_index;
+        document.getElementById('uv-large').innerText = val;
+        
+        let r = 'LOW', c = '#10b981', a = 'Safe to be outside. No special protection needed for most people.';
+        if (val >= 11) { r = 'EXTREME'; c = '#a855f7'; a = 'Dangerous level. Avoid being outside during midday. Use maximum protection.'; }
+        else if (val >= 8) { r = 'VERY HIGH'; c = '#ef4444'; a = 'High risk of harm. Minimize sun exposure. Wear high SPF sunscreen, hat, and sunglasses.'; }
+        else if (val >= 6) { r = 'HIGH'; c = '#f97316'; a = 'Wear protection. Use SPF 30+ sunscreen, seek shade between 10am and 4pm.'; }
+        else if (val >= 3) { r = 'MODERATE'; c = '#f59e0b'; a = 'Take precautions. Wear sunscreen and a hat if staying outside for long periods.'; }
+
+        const badge = document.getElementById('uv-risk-badge');
+        badge.innerText = r + ' RADIATION';
+        badge.style.background = c;
+        badge.style.boxShadow = `0 10px 30px ${c}44`;
+        document.getElementById('uv-advice').innerText = a;
+        document.getElementById('uv-main-container').style.boxShadow = `inset 0 0 100px ${c}11`;
+
+        if (d.history.length > 0) {
+            uvChart.data.labels = d.history.map(x => x.timestamp);
+            uvChart.data.datasets[0].data = d.history.map(x => x.uv_index);
+            uvChart.update('none');
+        }
+    };
+</script>
+{% endblock %}

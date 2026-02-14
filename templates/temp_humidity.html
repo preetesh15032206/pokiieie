@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row g-4">
+    <div class="col-12">
+        <div class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-5">
+                <div>
+                    <h5 class="fw-bold m-0 text-info" style="letter-spacing: 1px;">ENVIRONMENTAL CORRELATION</h5>
+                    <div class="small text-muted mt-1 fw-bold">Live Sensor Analytics Overlay</div>
+                </div>
+                <div class="btn-group shadow-sm">
+                    <button class="btn btn-sm btn-outline-info active px-4 py-2 fw-bold">LINE</button>
+                    <button class="btn btn-sm btn-outline-info px-4 py-2 fw-bold">AREA</button>
+                </div>
+            </div>
+            <div style="height: 500px;" class="px-2">
+                <canvas id="dualChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let mainChart;
+    document.addEventListener('DOMContentLoaded', () => {
+        const ctx = document.getElementById('dualChart').getContext('2d');
+        const gradient1 = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient1.addColorStop(0, 'rgba(245, 158, 11, 0.2)');
+        gradient1.addColorStop(1, 'transparent');
+        
+        const gradient2 = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient2.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+        gradient2.addColorStop(1, 'transparent');
+
+        mainChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { 
+                        label: 'Temperature (°C)', 
+                        data: [], 
+                        borderColor: '#f59e0b', 
+                        backgroundColor: gradient1, 
+                        fill: true, 
+                        yAxisID: 'y',
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 2
+                    },
+                    { 
+                        label: 'Humidity (%)', 
+                        data: [], 
+                        borderColor: '#3b82f6', 
+                        backgroundColor: gradient2, 
+                        fill: true, 
+                        yAxisID: 'y1',
+                        tension: 0.4,
+                        borderWidth: 3,
+                        pointRadius: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { 
+                        grid: { display: false }, 
+                        ticks: { color: '#94a3b8', maxRotation: 0 } 
+                    },
+                    y: { 
+                        position: 'left', 
+                        grid: { color: 'rgba(255,255,255,0.05)' }, 
+                        ticks: { color: '#f59e0b' },
+                        title: { display: true, text: 'Temp (°C)', color: '#f59e0b' }
+                    },
+                    y1: { 
+                        position: 'right', 
+                        grid: { display: false }, 
+                        ticks: { color: '#3b82f6' },
+                        title: { display: true, text: 'Hum (%)', color: '#3b82f6' }
+                    }
+                },
+                plugins: { 
+                    legend: { labels: { color: '#fff', usePointStyle: true, boxWidth: 6 } } 
+                }
+            }
+        });
+    });
+
+    window.onUpdate = function(d) {
+        if (d.history.length > 0) {
+            mainChart.data.labels = d.history.map(x => x.timestamp);
+            mainChart.data.datasets[0].data = d.history.map(x => x.temperature);
+            mainChart.data.datasets[1].data = d.history.map(x => x.humidity);
+            mainChart.update('none');
+        }
+    };
+</script>
+{% endblock %}
