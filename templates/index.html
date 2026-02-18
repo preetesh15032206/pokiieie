@@ -1,182 +1,205 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Monitoring Control Panel -->
-<div class="row mb-5">
-    <div class="col-12">
-        <div class="glass-card p-4">
-            <div class="row align-items-center g-4">
-                <div class="col-md-3 border-end border-secondary border-opacity-25">
-                    <h6 class="text-info fw-bold small mb-3"><i class="bi bi-gear-fill me-2"></i>ENGINE SETUP</h6>
-                    <div class="pe-3">
-                        <label class="small text-muted mb-2 fw-bold">Duration (min)</label>
-                        <input type="number" id="mon-duration" class="form-control bg-dark border-secondary text-white rounded-pill px-4 py-2" value="5" style="border-width: 2px;">
+<style>
+    :root { 
+        --glass: rgba(255, 255, 255, 0.05);
+        --accent-temp: #fb923c;
+        --accent-hum: #38bdf8;
+        --accent-precip: #22d3ee;
+        --accent-uv: #f59e0b;
+        --accent-pres: #818cf8;
+    }
+    body { background: #020617; color: #f8fafc; font-family: 'Inter', sans-serif; }
+    .glass-card { 
+        background: var(--glass); 
+        backdrop-filter: blur(12px); 
+        border: 1px solid rgba(255, 255, 255, 0.1); 
+        border-radius: 24px; 
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card:hover { border-color: rgba(255, 255, 255, 0.2); transform: translateY(-2px); }
+    .metric-value { font-size: 2.5rem; font-weight: 800; letter-spacing: -1px; }
+    .status-pill { padding: 6px 16px; border-radius: 100px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .bg-running { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
+    .bg-idle { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.2); }
+    .forecast-section { background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.05)); }
+    .timeline-container { height: 6px; background: rgba(255,255,255,0.05); border-radius: 10px; position: relative; margin: 20px 0; }
+    .timeline-progress { height: 100%; background: linear-gradient(90deg, #3b82f6, #2dd4bf); border-radius: 10px; transition: width 1s ease; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+    .weather-hero-icon { font-size: 5rem; animation: float 6s infinite ease-in-out; filter: drop-shadow(0 0 30px rgba(255,255,255,0.1)); }
+</style>
+
+<div class="container py-4">
+    <!-- Header & System Status -->
+    <div class="d-flex justify-content-between align-items-center mb-5">
+        <div>
+            <h2 class="fw-black m-0 text-white" style="letter-spacing: -1px;">Atmospheric AI Forecast Engine</h2>
+            <div class="d-flex align-items-center gap-3 mt-1">
+                <span id="system-status" class="status-pill bg-idle">System Standby</span>
+                <span class="text-secondary small"><i class="bi bi-cpu me-1"></i> BMP280 + Multi-Sensor Array</span>
+            </div>
+        </div>
+        <div class="text-end">
+            <div class="small text-secondary mb-1">SESSION TIMER</div>
+            <div id="session-timer" class="h3 fw-bold m-0 font-monospace">00:00:00</div>
+        </div>
+    </div>
+
+    <!-- Main Intelligence Display -->
+    <div class="row g-4 mb-5">
+        <div class="col-lg-8">
+            <div class="glass-card h-100 p-5 overflow-hidden position-relative forecast-section">
+                <div class="row align-items-center position-relative" style="z-index: 1;">
+                    <div class="col-md-6 text-center border-end border-white border-opacity-10">
+                        <div class="text-secondary small fw-bold mb-3">CURRENT CLASSIFICATION</div>
+                        <div id="main-icon" class="weather-hero-icon mb-3">🌤</div>
+                        <div id="main-prediction" class="h2 fw-black mb-1">SUNNY</div>
+                        <div class="badge bg-white bg-opacity-10 text-info">Real-time Analysis</div>
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <div class="text-secondary small fw-bold mb-3">2-HOUR FORECAST</div>
+                        <div id="forecast-icon" class="weather-hero-icon mb-3 opacity-75" style="font-size: 4rem;">☁️</div>
+                        <div id="forecast-prediction" class="h2 fw-black mb-1">CLOUDY</div>
+                        <div class="d-flex justify-content-center align-items-center gap-2">
+                            <span class="small text-secondary">Confidence:</span>
+                            <span id="ai-confidence" class="text-success fw-bold">--%</span>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6 px-lg-5">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="text-info fw-bold small mb-0"><i class="bi bi-activity me-2"></i>ACTIVE SESSION</h6>
-                        <span id="session-timer" class="text-white fw-bold h4 mb-0">00:00</span>
+                <div class="mt-5">
+                    <div class="d-flex justify-content-between small text-secondary fw-bold px-1">
+                        <span>NOW</span>
+                        <span class="text-info">ATMOSPHERIC EVOLUTION TIMELINE</span>
+                        <span>+2 HOURS</span>
                     </div>
-                    <div class="d-flex gap-3">
-                        <button id="btn-start" class="btn btn-premium flex-grow-1 shadow-lg" onclick="startMonitoring()">START MONITORING</button>
-                        <button id="btn-stop" class="btn btn-outline-danger rounded-pill px-4 fw-bold" onclick="stopMonitoring()" disabled>STOP</button>
-                        <button class="btn btn-outline-secondary rounded-pill px-3" onclick="clearSession()" title="Reset Engine"><i class="bi bi-arrow-counterclockwise"></i></button>
+                    <div class="timeline-container">
+                        <div id="timeline-bar" class="timeline-progress" style="width: 0%"></div>
                     </div>
                 </div>
-                <div class="col-md-3 border-start border-secondary border-opacity-25 ps-4">
-                    <h6 class="text-info fw-bold small mb-2"><i class="bi bi-fingerprint me-2"></i>SESSION ID</h6>
-                    <div id="session-id" class="fw-bold text-white mb-3 h5">IDLE_SYSTEM</div>
-                    <div class="progress bg-dark" style="height: 10px; border-radius: 10px;">
-                        <div id="session-progress" class="progress-bar progress-bar-striped progress-bar-animated bg-info" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="glass-card h-100 p-4">
+                <h6 class="text-secondary fw-bold mb-4">ENGINE CONTROLS</h6>
+                <div class="mb-4">
+                    <label class="small text-secondary fw-bold mb-2">Analysis Duration (Minutes)</label>
+                    <input type="number" id="mon-duration" class="form-control bg-dark border-0 text-white p-3 rounded-4" value="120">
+                </div>
+                <button id="btn-start" class="btn btn-primary w-100 py-3 rounded-4 fw-bold shadow-lg mb-3" onclick="startMonitoring()">
+                    <i class="bi bi-play-fill me-2"></i>START LAB SESSION
+                </button>
+                <button id="btn-stop" class="btn btn-outline-danger w-100 py-3 rounded-4 fw-bold" onclick="stopMonitoring()" disabled>
+                    <i class="bi bi-stop-fill me-2"></i>TERMINATE SESSION
+                </button>
+                <div class="mt-4 p-3 rounded-4 bg-white bg-opacity-5">
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-secondary">Session ID:</span>
+                        <span id="session-id" class="text-white fw-bold">--</span>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<div class="row mb-5">
-    <div class="col-12 text-center prediction-hero glass-card p-5 overflow-hidden position-relative">
-        <div class="position-absolute top-0 start-0 w-100 h-100" style="background: radial-gradient(circle at 50% 50%, rgba(0, 242, 255, 0.15), transparent); pointer-events: none;"></div>
-        <div id="main-icon-container" class="display-1 mb-4">
-            <i class="bi bi-stars animate-pulse text-info"></i>
-        </div>
-        <h5 class="text-info fw-bold mb-3 d-block text-uppercase" style="letter-spacing: 4px;">AI Analysis Engine</h5>
-        <div class="d-inline-block">
-            <div id="main-prediction" class="h1 fw-bold mb-0 py-3 px-5 rounded-pill shadow-lg border border-secondary border-opacity-25" style="background: rgba(0,0,0,0.3); min-width: 300px;">
-                READY
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row g-4 mb-4">
-    <!-- Temp -->
-    <div class="col-md-3">
-        <div class="glass-card p-4 h-100 d-flex flex-column">
-            <div class="d-flex justify-content-between mb-3 align-items-center">
-                <span class="text-info fw-bold small">TEMPERATURE</span>
-                <i class="bi bi-thermometer-half fs-4" style="color: var(--accent-temp);"></i>
-            </div>
-            <div class="mt-auto">
-                <div class="d-flex align-items-baseline mb-3">
+    <!-- Atmospheric Metrics -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary small fw-bold">TEMPERATURE</span>
+                    <i class="bi bi-thermometer-half text-warning"></i>
+                </div>
+                <div class="d-flex align-items-baseline">
                     <span id="card-temp" class="metric-value" style="color: var(--accent-temp);">--</span>
-                    <span class="text-white ms-2 h4 fw-bold">°C</span>
-                </div>
-                <div style="height: 80px;" class="mt-2">
-                    <canvas id="tempSpark"></canvas>
+                    <span class="ms-1 h5 text-secondary">°C</span>
                 </div>
             </div>
         </div>
-    </div>
-    <!-- Humidity -->
-    <div class="col-md-3">
-        <div class="glass-card p-4 h-100 d-flex flex-column">
-            <div class="d-flex justify-content-between mb-3 align-items-center">
-                <span class="text-info fw-bold small">HUMIDITY</span>
-                <i class="bi bi-droplet-fill fs-4" style="color: var(--accent-hum);"></i>
-            </div>
-            <div class="mt-auto">
-                <div class="d-flex align-items-baseline mb-3">
+        <div class="col-md-3">
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary small fw-bold">HUMIDITY</span>
+                    <i class="bi bi-droplet-fill text-info"></i>
+                </div>
+                <div class="d-flex align-items-baseline">
                     <span id="card-hum" class="metric-value" style="color: var(--accent-hum);">--</span>
-                    <span class="text-white ms-2 h4 fw-bold">%</span>
+                    <span class="ms-1 h5 text-secondary">%</span>
                 </div>
-                <div style="height: 80px;" class="mt-2">
-                    <canvas id="humSpark"></canvas>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary small fw-bold">PRESSURE (hPa)</span>
+                    <i class="bi bi-speedometer2 text-primary"></i>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span id="card-pres" class="metric-value" style="color: var(--accent-pres);">--</span>
+                    <span id="pres-trend" class="h4 m-0"></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="glass-card p-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-secondary small fw-bold">UV / PRECIP</span>
+                    <i class="bi bi-sun-fill text-danger"></i>
+                </div>
+                <div class="d-flex align-items-baseline">
+                    <span class="metric-value text-white"><span id="card-uv">--</span><span class="h4 text-secondary">/</span><span id="card-precip">--</span></span>
+                    <span class="ms-1 h5 text-secondary">%</span>
                 </div>
             </div>
         </div>
     </div>
-    <!-- Precipitation -->
-    <div class="col-md-3">
-        <div class="glass-card p-4 h-100 d-flex flex-column">
-            <div class="d-flex justify-content-between mb-3 align-items-center">
-                <span class="text-info fw-bold small">PRECIPITATION</span>
-                <i class="bi bi-cloud-rain-fill fs-4" style="color: var(--accent-precip);"></i>
-            </div>
-            <div class="mt-auto">
-                <div class="d-flex align-items-baseline mb-3">
-                    <span id="card-precip" class="metric-value" style="color: var(--accent-precip);">--</span>
-                    <span class="text-white ms-2 h4 fw-bold">%</span>
-                </div>
-                <div style="height: 80px;" class="mt-2">
-                    <canvas id="precipSpark"></canvas>
-                </div>
+
+    <!-- Charts -->
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="glass-card p-4">
+                <h6 class="text-secondary fw-bold mb-4">ATMOSPHERIC PRESSURE DYNAMICS</h6>
+                <div style="height: 250px;"><canvas id="presChart"></canvas></div>
             </div>
         </div>
-    </div>
-    <!-- UV -->
-    <div class="col-md-3">
-        <div class="glass-card p-4 h-100 d-flex flex-column">
-            <div class="d-flex justify-content-between mb-3 align-items-center">
-                <span class="text-info fw-bold small">UV INDEX</span>
-                <i class="bi bi-sun-fill fs-4" style="color: var(--accent-uv);"></i>
-            </div>
-            <div class="mt-auto">
-                <div class="d-flex align-items-baseline mb-3">
-                    <span id="card-uv" class="metric-value" style="color: var(--accent-uv);">--</span>
-                    <span class="text-white ms-2 h4 fw-bold">UVI</span>
-                </div>
-                <div id="uv-risk-label" class="mt-2 fw-bold px-4 py-2 rounded-pill text-center shadow-sm" style="font-size: 0.85rem;">--</div>
+        <div class="col-md-6">
+            <div class="glass-card p-4">
+                <h6 class="text-secondary fw-bold mb-4">HUMIDITY EVOLUTION TREND</h6>
+                <div style="height: 250px;"><canvas id="humChart"></canvas></div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row g-4 mt-2">
-    <div class="col-md-6">
-        <div class="glass-card p-4 d-flex justify-content-between align-items-center border-start border-info border-5">
-            <div>
-                <span class="text-info fw-bold small">ANALYSIS CONFIDENCE</span>
-                <div id="ai-conf" class="h2 fw-bold mb-0 text-white mt-1">--%</div>
-            </div>
-            <div class="text-info h1 mb-0 opacity-75"><i class="bi bi-shield-check"></i></div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="glass-card p-4 d-flex justify-content-between align-items-center border-start border-primary border-5">
-            <div>
-                <span class="text-primary fw-bold small">STREAM INTEGRITY</span>
-                <div id="stream-status" class="h2 fw-bold mb-0 text-white mt-1">STANDBY</div>
-            </div>
-            <div class="text-primary h1 mb-0 opacity-75"><i class="bi bi-activity"></i></div>
-        </div>
-    </div>
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    const weatherIcons = { "Sunny": "🌤", "Rainy": "🌧", "Cloudy": "☁️", "Snowy": "❄️", "Unknown": "❓", "N/A": "❓" };
     let charts = {};
-    const sparkConfig = {
+
+    const chartBaseConfig = {
         type: 'line',
         options: {
             maintainAspectRatio: false,
-            plugins: { legend: false, tooltip: false },
-            scales: { x: { display: false }, y: { display: false } },
-            elements: { 
-                point: { radius: 0 }, 
-                line: { tension: 0.4, borderWidth: 3 } 
-            }
+            plugins: { legend: { display: false } },
+            scales: { 
+                x: { display: false }, 
+                y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#64748b' } } 
+            },
+            elements: { line: { tension: 0.4, borderWidth: 3 }, point: { radius: 0 } }
         }
     };
 
     document.addEventListener('DOMContentLoaded', () => {
-        const createSpark = (id, color) => new Chart(document.getElementById(id), {
-            ...sparkConfig,
-            data: { 
-                labels: Array(15).fill(''), 
-                datasets: [{ 
-                    data: [], 
-                    borderColor: color, 
-                    fill: true, 
-                    backgroundColor: color + '11',
-                    borderCapStyle: 'round'
-                }] 
-            }
+        charts.pres = new Chart(document.getElementById('presChart'), {
+            ...chartBaseConfig,
+            data: { labels: [], datasets: [{ data: [], borderColor: '#818cf8', backgroundColor: 'rgba(129,140,248,0.1)', fill: true }] }
         });
-        charts.temp = createSpark('tempSpark', '#fb923c');
-        charts.hum = createSpark('humSpark', '#38bdf8');
-        charts.precip = createSpark('precipSpark', '#22d3ee');
+        charts.hum = new Chart(document.getElementById('humChart'), {
+            ...chartBaseConfig,
+            data: { labels: [], datasets: [{ data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,0.1)', fill: true }] }
+        });
+        setInterval(updateDashboard, 2000);
     });
 
     async function startMonitoring() {
@@ -192,79 +215,60 @@
         await fetch('/stop_monitoring', { method: 'POST' });
     }
 
-    async function clearSession() {
-        await fetch('/clear_data', { method: 'POST' });
+    async function updateDashboard() {
+        try {
+            const res = await fetch('/data');
+            const d = await res.json();
+            const cur = d.current;
+            const mon = cur.monitoring;
+
+            // Status & Timer
+            document.getElementById('system-status').innerText = mon.active ? 'System Active' : 'System Standby';
+            document.getElementById('system-status').className = `status-pill ${mon.active ? 'bg-running' : 'bg-idle'}`;
+            document.getElementById('session-id').innerText = mon.session_id || '--';
+            
+            const rem = mon.remaining;
+            const h = Math.floor(rem / 3600).toString().padStart(2, '0');
+            const m = Math.floor((rem % 3600) / 60).toString().padStart(2, '0');
+            const s = (rem % 60).toString().padStart(2, '0');
+            document.getElementById('session-timer').innerText = `${h}:${m}:${s}`;
+            
+            document.getElementById('btn-start').disabled = mon.active;
+            document.getElementById('btn-stop').disabled = !mon.active;
+            document.getElementById('timeline-bar').style.width = mon.active ? ((mon.elapsed / (mon.duration * 60)) * 100) + '%' : '0%';
+
+            // Predictions
+            document.getElementById('main-prediction').innerText = cur.prediction.toUpperCase();
+            document.getElementById('main-icon').innerText = weatherIcons[cur.prediction] || "❓";
+            document.getElementById('forecast-prediction').innerText = cur.forecast_2hr.toUpperCase();
+            document.getElementById('forecast-icon').innerText = weatherIcons[cur.forecast_2hr] || "❓";
+            document.getElementById('ai-confidence').innerText = cur.confidence + '%';
+
+            // Metrics
+            document.getElementById('card-temp').innerText = cur.temperature;
+            document.getElementById('card-hum').innerText = cur.humidity;
+            document.getElementById('card-pres').innerText = cur.pressure;
+            document.getElementById('card-uv').innerText = cur.uv_index;
+            document.getElementById('card-precip').innerText = cur.precipitation;
+
+            // Charts
+            if (d.history.length > 0) {
+                charts.pres.data.labels = d.history.map(x => x.timestamp);
+                charts.pres.data.datasets[0].data = d.history.map(x => x.pressure);
+                charts.hum.data.labels = d.history.map(x => x.timestamp);
+                charts.hum.data.datasets[0].data = d.history.map(x => x.humidity);
+                charts.pres.update('none');
+                charts.hum.update('none');
+
+                if (d.history.length > 1) {
+                    const last = d.history[d.history.length-1].pressure;
+                    const prev = d.history[d.history.length-2].pressure;
+                    const trend = document.getElementById('pres-trend');
+                    trend.innerText = last > prev ? '↑' : (last < prev ? '↓' : '→');
+                    trend.style.color = last > prev ? '#4ade80' : (last < prev ? '#f87171' : '#94a3b8');
+                }
+            }
+        } catch (e) { console.error(e); }
     }
-
-    function updateColors(type) {
-        type = type.toLowerCase();
-        if (type.includes('sun')) return { bg: 'rgba(245, 158, 11, 0.2)', text: '#f59e0b', icon: 'bi-sun-fill' };
-        if (type.includes('rain')) return { bg: 'rgba(59, 130, 246, 0.2)', text: '#3b82f6', icon: 'bi-cloud-rain-fill' };
-        if (type.includes('cloud')) return { bg: 'rgba(148, 163, 184, 0.2)', text: '#94a3b8', icon: 'bi-cloud-fill' };
-        return { bg: 'rgba(255,255,255,0.05)', text: '#fff', icon: 'bi-stars' };
-    }
-
-    window.onUpdate = function(d) {
-        const mon = d.current.monitoring;
-        document.getElementById('btn-start').disabled = mon.active;
-        document.getElementById('btn-stop').disabled = !mon.active;
-        document.getElementById('session-id').innerText = mon.session_id || 'IDLE_SYSTEM';
-        
-        const mins = Math.floor(mon.remaining / 60);
-        const secs = mon.remaining % 60;
-        document.getElementById('session-timer').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        
-        const prog = mon.active ? (mon.elapsed / (mon.duration * 60) * 100) : 0;
-        document.getElementById('session-progress').style.width = prog + '%';
-        
-        if (!mon.active && d.current.status !== 'Completed') {
-            document.getElementById('main-prediction').innerText = 'READY';
-            document.getElementById('stream-status').innerText = 'STANDBY';
-            return;
-        }
-
-        document.getElementById('card-temp').innerText = d.current.temperature;
-        document.getElementById('card-hum').innerText = d.current.humidity;
-        document.getElementById('card-precip').innerText = d.current.precipitation;
-        document.getElementById('card-uv').innerText = d.current.uv_index;
-        document.getElementById('ai-conf').innerText = d.current.confidence + '%';
-        document.getElementById('stream-status').innerText = 'ACTIVE';
-
-        const pred = d.current.prediction;
-        const banner = document.getElementById('main-prediction');
-        const colors = updateColors(pred);
-        banner.innerText = pred.toUpperCase();
-        banner.style.color = colors.text;
-        banner.style.background = 'rgba(0,0,0,0.5)';
-        banner.style.borderColor = colors.text + '44';
-        document.getElementById('main-icon-container').innerHTML = `<i class="bi ${colors.icon} animate-pulse" style="color: ${colors.text}; filter: drop-shadow(0 0 20px ${colors.text});"></i>`;
-
-        let r = 'LOW', c = '#10b981';
-        if (d.current.uv_index >= 8) { r = 'EXTREME'; c = '#ef4444'; }
-        else if (d.current.uv_index >= 5) { r = 'HIGH'; c = '#f97316'; }
-        const rl = document.getElementById('uv-risk-label');
-        rl.innerText = r + ' RISK';
-        rl.style.color = c;
-        rl.style.background = c + '22';
-        rl.style.border = `1px solid ${c}44`;
-
-        if (d.history.length > 0) {
-            const h = d.history.slice(-15);
-            charts.temp.data.labels = h.map(x => '');
-            charts.temp.data.datasets[0].data = h.map(x => x.temperature);
-            charts.hum.data.labels = h.map(x => '');
-            charts.hum.data.datasets[0].data = h.map(x => x.humidity);
-            charts.precip.data.labels = h.map(x => '');
-            charts.precip.data.datasets[0].data = h.map(x => x.precipitation);
-            Object.values(charts).forEach(c => c.update('none'));
-        }
-    };
 </script>
-<style>
-    @keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.05); opacity: 0.8; } }
-    .animate-pulse { animation: pulse 3s infinite ease-in-out; display: inline-block; }
-    .metric-value { font-size: 3rem; font-weight: 800; }
-    .prediction-hero { border: 2px solid rgba(255,255,255,0.05); transition: border-color 0.5s ease; }
-    input[type=number]::-webkit-inner-spin-button { opacity: 1; }
-</style>
 {% endblock %}

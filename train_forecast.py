@@ -3,26 +3,34 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
 import joblib
 
-def train_forecast():
+def train_models():
     try:
         df = pd.read_csv("forecast_dataset.csv")
         
-        X = df[['Temperature', 'Humidity', 'Precipitation (%)', 'UV Index', 'Pressure']]
-        y = df['Target_Condition']
+        # 1. Current Weather Model (4 features)
+        X1 = df[['Temperature', 'Humidity', 'Precipitation (%)', 'UV Index']]
+        y1 = df['Condition']
+        le1 = LabelEncoder()
+        y1_enc = le1.fit_transform(y1)
+        m1 = RandomForestClassifier(n_estimators=100)
+        m1.fit(X1, y1_enc)
+        joblib.dump(m1, "weather_model.pkl")
+        joblib.dump(le1, "label_encoder.pkl")
         
-        le = LabelEncoder()
-        y_encoded = le.fit_transform(y)
+        # 2. Forecast Model (5 features including Pressure)
+        X2 = df[['Temperature', 'Humidity', 'Precipitation (%)', 'UV Index', 'Pressure']]
+        y2 = df['Target_Condition']
+        le2 = LabelEncoder()
+        y2_enc = le2.fit_transform(y2)
+        m2 = RandomForestClassifier(n_estimators=100)
+        m2.fit(X2, y2_enc)
+        joblib.dump(m2, "forecast_model.pkl")
+        joblib.dump(le2, "forecast_encoder.pkl")
         
-        model = RandomForestClassifier(n_estimators=100)
-        model.fit(X, y_encoded)
-        
-        joblib.dump(model, "forecast_model.pkl")
-        joblib.dump(le, "forecast_encoder.pkl")
-        
-        print("Forecast model trained and saved.")
+        print("All models trained and saved successfully.")
         
     except Exception as e:
         print(f"Training error: {e}")
 
 if __name__ == "__main__":
-    train_forecast()
+    train_models()

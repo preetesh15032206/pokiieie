@@ -10,6 +10,12 @@ from datetime import datetime
 
 app = Flask(__name__)
 
+import csv
+import os
+
+# Configuration
+LOG_FILE = "weather_log.csv"
+
 # Load models and encoders
 try:
     model = joblib.load("weather_model.pkl")
@@ -26,12 +32,12 @@ sensor_data = {
     "humidity": 0,
     "precipitation": 0,
     "uv_index": 0,
-    "pressure": 1013.25,
+    "pressure": 1013.2,
     "prediction": "Calculating...",
     "forecast_2hr": "Calculating...",
+    "confidence": 0,
     "status": "Idle",
     "timestamp": "",
-    "confidence": 0,
     "monitoring": {
         "active": False,
         "session_id": None,
@@ -41,33 +47,67 @@ sensor_data = {
         "remaining": 0
     }
 }
-history = collections.deque(maxlen=20)
+history = collections.deque(maxlen=50)
+
+def log_data(data):
+    file_exists = os.path.isfile(LOG_FILE)
+    with open(LOG_FILE, mode='a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=[
+            "timestamp", "temperature", "humidity", "precipitation", 
+            "uv_index", "pressure", "current_weather"
+        ])
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(data)
 
 def read_serial():
     global sensor_data
     while True:
         try:
-            # Simulation for Premium UI testing
             with data_lock:
                 if sensor_data["monitoring"]["active"]:
-                    # Improved simulation with pressure
-                    t = round(25 + np.sin(time.time()/10)*5 + np.random.normal(0, 0.5), 1)
-                    h = round(60 + np.cos(time.time()/12)*10 + np.random.normal(0, 1), 1)
-                    p = round(max(0, min(100, 20 + np.sin(time.time()/15)*40 + np.random.normal(0, 5))), 1)
-                    uv = round(max(0, 5 + np.sin(time.time()/20)*6 + np.random.normal(0, 0.5)), 1)
-                    pres = round(1013.25 + np.cos(time.time()/30)*15 + np.random.normal(0, 1), 1)
-                    update_values(t, h, p, uv, pres)
+                    # Atmospheric simulation logic
+                    elapsed = (time.time() - sensor_data["monitoring"]["start_time"]) % (120 * 60)
                     
+                    if elapsed < 30 * 60: # Phase 1
+                        t, h, p, uv, pres = 31.0, 45.0, 0.0, 8.0, 1014.5
+                    elif elapsed < 60 * 60: # Phase 2
+                        prog = (elapsed - 30 * 60) / (30 * 60)
+                        t, h, p, uv, pres = 31.0-2*prog, 45.0+15*prog, 0.0, 8.0-3*prog, 1014.5-2*prog
+                    elif elapsed < 90 * 60: # Phase 3
+                        prog = (elapsed - 60 * 60) / (30 * 60)
+                        t, h, p, uv, pres = 29.0-4*prog, 60.0+15*prog, 15*prog, 5.0-4.5*prog, 1012.5-6*prog
+                    else: # Phase 4
+                        prog = (elapsed - 90 * 60) / (30 * 60)
+                        t, h, p, uv, pres = 25.0-2*prog, 75.0+20*prog, 70.0+20*prog, 0.5-0.5*prog, 1006.5-8*prog
+                    
+                    t += np.random.normal(0, 0.2)
+                    h += np.random.normal(0, 0.5)
+                    pres += np.random.normal(0, 0.2)
+                    
+                    update_values(round(t, 1), round(h, 1), round(p, 1), round(uv, 1), round(pres, 1))
+                    
+                    # Log data
+                    log_data({
+                        "timestamp": datetime.now().isoformat(),
+                        "temperature": sensor_data["temperature"],
+                        "humidity": sensor_data["humidity"],
+                        "precipitation": sensor_data["precipitation"],
+                        "uv_index": sensor_data["uv_index"],
+                        "pressure": sensor_data["pressure"],
+                        "current_weather": sensor_data["prediction"]
+                    })
+
                     # Update monitoring stats
-                    elapsed = int(time.time() - sensor_data["monitoring"]["start_time"])
-                    sensor_data["monitoring"]["elapsed"] = elapsed
-                    sensor_data["monitoring"]["remaining"] = max(0, (sensor_data["monitoring"]["duration"] * 60) - elapsed)
+                    total_elapsed = int(time.time() - sensor_data["monitoring"]["start_time"])
+                    sensor_data["monitoring"]["elapsed"] = total_elapsed
+                    sensor_data["monitoring"]["remaining"] = max(0, (sensor_data["monitoring"]["duration"] * 60) - total_elapsed)
                     
-                    if elapsed >= sensor_data["monitoring"]["duration"] * 60:
+                    if total_elapsed >= sensor_data["monitoring"]["duration"] * 60:
                         sensor_data["monitoring"]["active"] = False
                         sensor_data["status"] = "Completed"
                 
-            time.sleep(2)
+            time.sleep(5) # Standard 5s interval
         except Exception as e:
             print(f"Update error: {e}")
             time.sleep(5)
@@ -80,16 +120,13 @@ def update_values(t, h, p, uv, pres):
     sensor_data["pressure"] = pres
     sensor_data["timestamp"] = datetime.now().strftime("%H:%M:%S")
     
-    input_features = [[t, h, p, uv, pres]]
     # Current Weather Prediction
     try:
-        # Note: model expects 4 or 5 features depending on training
-        # If original model only had 4, we might need to adjust
         current_input = pd.DataFrame([[t, h, p, uv]], columns=["Temperature", "Humidity", "Precipitation (%)", "UV Index"])
         pred = model.predict(current_input)
         sensor_data["prediction"] = label_encoder.inverse_transform(pred)[0]
     except:
-        pass
+        sensor_data["prediction"] = "Unknown"
 
     # 2-Hour Forecast Prediction
     try:
@@ -98,9 +135,9 @@ def update_values(t, h, p, uv, pres):
         f_pred = forecast_model.predict(forecast_input)
         sensor_data["forecast_2hr"] = forecast_encoder.inverse_transform(f_pred)[0]
     except:
-        pass
+        sensor_data["forecast_2hr"] = "N/A"
     
-    sensor_data["confidence"] = round(90 + np.random.random() * 8, 1)
+    sensor_data["confidence"] = round(85 + np.random.random() * 10, 1)
     
     history.append({
         "temperature": t, 
