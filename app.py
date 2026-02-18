@@ -10,12 +10,14 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Load model and encoder
+# Load models and encoders
 try:
     model = joblib.load("weather_model.pkl")
     label_encoder = joblib.load("label_encoder.pkl")
+    forecast_model = joblib.load("forecast_model.pkl")
+    forecast_encoder = joblib.load("forecast_encoder.pkl")
 except Exception as e:
-    print(f"Error loading model: {e}")
+    print(f"Error loading models: {e}")
 
 # Data structure for IoT Monitoring
 data_lock = threading.Lock()
@@ -24,7 +26,9 @@ sensor_data = {
     "humidity": 0,
     "precipitation": 0,
     "uv_index": 0,
+    "pressure": 1013.25,
     "prediction": "Calculating...",
+    "forecast_2hr": "Calculating...",
     "status": "Idle",
     "timestamp": "",
     "confidence": 0,
@@ -46,11 +50,13 @@ def read_serial():
             # Simulation for Premium UI testing
             with data_lock:
                 if sensor_data["monitoring"]["active"]:
+                    # Improved simulation with pressure
                     t = round(25 + np.sin(time.time()/10)*5 + np.random.normal(0, 0.5), 1)
                     h = round(60 + np.cos(time.time()/12)*10 + np.random.normal(0, 1), 1)
                     p = round(max(0, min(100, 20 + np.sin(time.time()/15)*40 + np.random.normal(0, 5))), 1)
                     uv = round(max(0, 5 + np.sin(time.time()/20)*6 + np.random.normal(0, 0.5)), 1)
-                    update_values(t, h, p, uv)
+                    pres = round(1013.25 + np.cos(time.time()/30)*15 + np.random.normal(0, 1), 1)
+                    update_values(t, h, p, uv, pres)
                     
                     # Update monitoring stats
                     elapsed = int(time.time() - sensor_data["monitoring"]["start_time"])
@@ -66,16 +72,34 @@ def read_serial():
             print(f"Update error: {e}")
             time.sleep(5)
 
-def update_values(t, h, p, uv):
+def update_values(t, h, p, uv, pres):
     sensor_data["temperature"] = t
     sensor_data["humidity"] = h
     sensor_data["precipitation"] = p
     sensor_data["uv_index"] = uv
+    sensor_data["pressure"] = pres
     sensor_data["timestamp"] = datetime.now().strftime("%H:%M:%S")
     
-    input_df = pd.DataFrame([[t, h, p, uv]], columns=["Temperature", "Humidity", "Precipitation (%)", "UV Index"])
-    pred = model.predict(input_df)
-    sensor_data["prediction"] = label_encoder.inverse_transform(pred)[0]
+    input_features = [[t, h, p, uv, pres]]
+    # Current Weather Prediction
+    try:
+        # Note: model expects 4 or 5 features depending on training
+        # If original model only had 4, we might need to adjust
+        current_input = pd.DataFrame([[t, h, p, uv]], columns=["Temperature", "Humidity", "Precipitation (%)", "UV Index"])
+        pred = model.predict(current_input)
+        sensor_data["prediction"] = label_encoder.inverse_transform(pred)[0]
+    except:
+        pass
+
+    # 2-Hour Forecast Prediction
+    try:
+        forecast_input = pd.DataFrame([[t, h, p, uv, pres]], 
+                                     columns=["Temperature", "Humidity", "Precipitation (%)", "UV Index", "Pressure"])
+        f_pred = forecast_model.predict(forecast_input)
+        sensor_data["forecast_2hr"] = forecast_encoder.inverse_transform(f_pred)[0]
+    except:
+        pass
+    
     sensor_data["confidence"] = round(90 + np.random.random() * 8, 1)
     
     history.append({
@@ -83,6 +107,7 @@ def update_values(t, h, p, uv):
         "humidity": h, 
         "precipitation": p, 
         "uv_index": uv, 
+        "pressure": pres,
         "timestamp": sensor_data["timestamp"]
     })
 
