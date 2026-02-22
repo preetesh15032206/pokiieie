@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    :root {
+        --primary-violet: #8B5CF6;
+        --secondary-indigo: #6366F1;
+        --bg-dark: #0B1220;
+    }
+    body { background-color: var(--bg-dark); color: #f8fafc; }
+    
+    .pressure-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 3rem;
+    }
+    
+    .status-badge {
+        padding: 0.5rem 1.25rem;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+    
+    .status-live {
+        background: rgba(139, 92, 246, 0.1);
+        color: var(--primary-violet);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.1);
+    }
+
+    .main-pressure-card {
+        background: rgba(255, 255, 255, 0.03);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(139, 92, 246, 0.2);
+        border-radius: 32px;
+        padding: 4rem;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 3rem;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .glow-accent {
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%);
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    .pressure-display {
+        position: relative;
+        z-index: 1;
+    }
+
+    .pressure-value {
+        font-size: 6rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+
+    .pressure-unit {
+        font-size: 1.5rem;
+        color: #94a3b8;
+        font-weight: 500;
+        margin-left: 0.5rem;
+    }
+
+    .gauge-container {
+        width: 280px;
+        height: 280px;
+        margin: 0 auto 2rem;
+        position: relative;
+    }
+
+    .gauge-svg {
+        transform: rotate(-90deg);
+    }
+
+    .gauge-bg {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.05);
+        stroke-width: 12;
+    }
+
+    .gauge-fill {
+        fill: none;
+        stroke: var(--primary-violet);
+        stroke-width: 12;
+        stroke-linecap: round;
+        stroke-dasharray: 628;
+        stroke-dashoffset: 628;
+        transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+        filter: drop-shadow(0 0 8px var(--primary-violet));
+    }
+
+    .bottom-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2rem;
+    }
+
+    .info-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 24px;
+        padding: 2rem;
+    }
+
+    .card-title {
+        color: #94a3b8;
+        font-size: 0.875rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .interpretation-box {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+    .interpretation-icon {
+        font-size: 3rem;
+    }
+
+    .interpretation-text {
+        font-size: 1.25rem;
+        font-weight: 600;
+    }
+
+    #pressure-chart {
+        height: 200px;
+        width: 100%;
+    }
+</style>
+
+<div class="pressure-container">
+    <header class="header-section">
+        <div>
+            <h1 class="fw-bold m-0" style="letter-spacing: -0.02em;">ATMOSPHERIC PRESSURE MONITOR</h1>
+            <p class="text-secondary mt-1">Real-time Barometric Intelligence</p>
+        </div>
+        <div id="pressure-status" class="status-badge status-live">Live Feed</div>
+    </header>
+
+    <div class="main-pressure-card">
+        <div class="glow-accent"></div>
+        <div class="gauge-container">
+            <svg class="gauge-svg" width="280" height="280">
+                <circle class="gauge-bg" cx="140" cy="140" r="100"></circle>
+                <circle id="gauge-fill" class="gauge-fill" cx="140" cy="140" r="100"></circle>
+            </svg>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                <i class="bi bi-speedometer2" style="font-size: 3rem; color: var(--primary-violet);"></i>
+            </div>
+        </div>
+        <div class="pressure-display">
+            <div class="d-flex align-items-baseline justify-content-center">
+                <span id="pressure-value" class="pressure-value">1013.2</span>
+                <span class="pressure-unit">hPa</span>
+            </div>
+            <div class="text-secondary fw-bold small text-uppercase" style="letter-spacing: 0.2em;">Current Pressure</div>
+        </div>
+    </div>
+
+    <div class="bottom-grid">
+        <div class="info-card">
+            <div class="card-title">
+                <i class="bi bi-graph-up text-violet-400"></i>
+                Pressure Trend Graph
+            </div>
+            <div id="pressure-chart-container">
+                <canvas id="pressure-history-chart"></canvas>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="card-title">
+                <i class="bi bi-lightbulb text-violet-400"></i>
+                Weather Interpretation
+            </div>
+            <div id="interpretation-content" class="interpretation-box">
+                <div id="interp-icon" class="interpretation-icon">☀️</div>
+                <div>
+                    <div id="interp-title" class="interpretation-text">Stable Atmosphere</div>
+                    <p id="interp-desc" class="text-secondary small m-0">High pressure indicates clear skies and calm conditions.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let pressureChart;
+    
+    function initChart() {
+        const ctx = document.getElementById('pressure-history-chart').getContext('2d');
+        pressureChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Pressure',
+                    data: [],
+                    borderColor: '#8B5CF6',
+                    borderWidth: 3,
+                    pointRadius: 0,
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { 
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#64748b', font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    async function updatePressure() {
+        try {
+            const response = await fetch('/data');
+            const data = await response.json();
+            const cur = data.current;
+            const history = data.history;
+
+            // Update Value
+            document.getElementById('pressure-value').innerText = cur.pressure;
+            
+            // Update Gauge
+            const fill = document.getElementById('gauge-fill');
+            // Map 950-1050 to 0-100%
+            const percent = Math.max(0, Math.min(100, (cur.pressure - 950) / (1050 - 950) * 100));
+            const offset = 628 - (628 * percent / 100);
+            fill.style.strokeDashoffset = offset;
+
+            // Update Interpretation
+            const icon = document.getElementById('interp-icon');
+            const title = document.getElementById('interp-title');
+            const desc = document.getElementById('interp-desc');
+            
+            if (cur.pressure > 1015) {
+                icon.innerText = '☀️';
+                title.innerText = 'High Pressure';
+                desc.innerText = 'Atmospheric stability detected. Expect clear skies and dry conditions.';
+            } else if (cur.pressure > 1005) {
+                icon.innerText = '🌤️';
+                title.innerText = 'Normal Range';
+                desc.innerText = 'Pressure is within standard atmospheric range. Variable conditions possible.';
+            } else {
+                icon.innerText = '🌧️';
+                title.innerText = 'Low Pressure';
+                desc.innerText = 'Significant drop detected. High probability of precipitation or storm activity.';
+            }
+
+            // Update Status
+            const status = document.getElementById('pressure-status');
+            status.innerText = cur.monitoring.active ? 'Live Feed' : 'Idle';
+            status.className = `status-badge ${cur.monitoring.active ? 'status-live' : 'bg-secondary text-white'}`;
+
+            // Update Chart
+            if (history.length > 0) {
+                pressureChart.data.labels = history.map(h => h.timestamp);
+                pressureChart.data.datasets[0].data = history.map(h => h.pressure);
+                pressureChart.update('none');
+            }
+
+        } catch (e) { console.error('Pressure update failed:', e); }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initChart();
+        setInterval(updatePressure, 2000);
+        updatePressure();
+    });
+</script>
+{% endblock %}

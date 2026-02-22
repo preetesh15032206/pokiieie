@@ -154,6 +154,9 @@ thread.start()
 @app.route('/')
 def index(): return render_template('index.html')
 
+@app.route('/pressure')
+def pressure(): return render_template('pressure.html')
+
 @app.route('/start_monitoring', methods=['POST'])
 def start_monitoring():
     import json
